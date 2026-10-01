@@ -11,7 +11,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Proxy.txt ဖိုင်မှ Proxy များကို အလိုအလျောက် ဖတ်မည့် function (Proxy စာရင်းများ ဖျက်ပြီးပါပြီ)
+# Proxy.txt ဖိုင်မှ Proxy များကို အလိုအလျောက် ဖတ်မည့် function
 def load_proxies_from_file():
     filenames = [
         "Proxy.txt", "proxy.txt",
@@ -85,15 +85,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     chat_id = query.message.chat_id
     
     data = query.data
     if data == "update_portal":
+        await query.answer()
         context.user_data['waiting_for'] = 'portal'
         await query.message.reply_text("🔗 Portal URL ကို ပို့ပေးပါ:")
     
     elif data == "change_mode":
+        await query.answer()
         keyboard = [
             [InlineKeyboardButton("Number 6", callback_data="mode_Number 6"), InlineKeyboardButton("Number 7", callback_data="mode_Number 7"), InlineKeyboardButton("Number 8", callback_data="mode_Number 8")],
             [InlineKeyboardButton("Number 9", callback_data="mode_Number 9")],
@@ -106,6 +107,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text("⚙️ **Choose Scanner Mode**", reply_markup=reply_markup, parse_mode="Markdown")
     
     elif data.startswith("mode_"):
+        await query.answer()
         selected_mode = data.replace("mode_", "")
         if selected_mode == "back":
             await start(update, context)
@@ -114,6 +116,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start(update, context)
             
     elif data == "change_workers":
+        await query.answer()
         keyboard = [
             [InlineKeyboardButton("300", callback_data="worker_300"), InlineKeyboardButton("500", callback_data="worker_500")],
             [InlineKeyboardButton("800", callback_data="worker_800"), InlineKeyboardButton("1000", callback_data="worker_1000")],
@@ -123,6 +126,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text("⚙️ **Choose Worker Count (300 - 1000)**", reply_markup=reply_markup, parse_mode="Markdown")
         
     elif data.startswith("worker_"):
+        await query.answer()
         selected = data.replace("worker_", "")
         if selected == "back":
             await start(update, context)
@@ -131,19 +135,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start(update, context)
 
     elif data == "add_proxies":
-        user_proxies[chat_id] = load_proxies_from_file()
-        await query.message.reply_text(f"🔄 Proxy များကို ပြန်လည်ဆွဲယူပြီးပါပြီ။ (စုစုပေါင်း: {len(user_proxies[chat_id])})")
+        all_proxies = load_proxies_from_file()
+        if all_proxies:
+            random.shuffle(all_proxies)
+            user_proxies[chat_id] = all_proxies
+        await query.answer()
         await start(update, context)
     
     elif data == "start_scanner":
+        await query.answer()
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠️ စကင်န်ဖတ်ခြင်း လုပ်ငန်းစဉ် လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
             return
         asyncio.create_task(run_scanner_with_workers(query, context, portal))
+        
+    elif data == "stop_scanner_btn":
+        await query.answer("🛑 စကင်န်ဖတ်ခြင်းကို ရပ်တန့်နေပါပြီ...")
+        scanning_states[chat_id] = False
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -211,8 +223,11 @@ async def run_scanner_with_workers(query, context, portal_url):
     workers_count = user_workers.get(chat_id, 1000)
     mode = user_modes.get(chat_id, "Number 6")
     
+    stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop Scanner", callback_data="stop_scanner_btn")]])
+    
     status_message = await query.message.reply_text(
-        f"⚡ **Ruijie Voucher Scanner စတင်နေပါပြီ ({mode} | Workers: {workers_count})...**\nရပ်တန့်ရန် `/stop` ဟု ရိုက်ပါ။", 
+        f"⚡ **Ruijie Voucher Scanner စတင်နေပါပြီ ({mode} | Workers: {workers_count})...**", 
+        reply_markup=stop_keyboard,
         parse_mode="Markdown"
     )
     
@@ -239,12 +254,11 @@ async def run_scanner_with_workers(query, context, portal_url):
                 f"🎯 Current Code: `{current_code}`\n"
                 f"🔥 Hits Found: {len(hits_list)}\n"
                 f"🔑 Latest Hits: `{hits_str}`\n"
-                f"⚙️ Mode: {mode}\n"
-                f"🔧 Active Workers: {workers_count}\n\n"
-                "🛑 ရပ်တန့်ရန် `/stop` ဟု ရိုက်ပါ။"
+                f"⚙ Mode: {mode}\n"
+                f"🔧 Active Workers: {workers_count}"
             )
             try:
-                await status_message.edit_text(live_text, parse_mode="Markdown")
+                await status_message.edit_text(live_text, reply_markup=stop_keyboard, parse_mode="Markdown")
             except Exception:
                 pass
             
@@ -289,4 +303,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-            
+    
