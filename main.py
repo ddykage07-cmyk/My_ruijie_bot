@@ -11,9 +11,13 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Proxy.txt သို့မဟုတ် proxy.txt ဖိုင်များကို သေချာဖတ်မည့် function
+# Proxy.txt သို့မဟုတ် proxy.txt ဖိုင်များမှ Proxy များကို အလိုအလျောက် ဖတ်မည့် function
 def load_proxies_from_file():
-    for filename in ["Proxy.txt", "proxy.txt", "@SIRZIPP.txt"]:
+    filenames = [
+        "Proxy.txt", "proxy.txt",
+        "../Proxy.txt", "../proxy.txt"
+    ]
+    for filename in filenames:
         if os.path.exists(filename):
             try:
                 with open(filename, "r", encoding="utf-8") as f:
