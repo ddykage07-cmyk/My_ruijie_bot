@@ -297,7 +297,7 @@ async def run_scanner_with_workers(query, context, portal_url):
                 f"🔥 **Hit Codes BY Kage:**\n`{hits_str}`"
             )
             try:
-                await status_message.edit_text(live_text, reply_markup=stop_keyboard, parse_Mode="Markdown")
+                await status_message.edit_text(live_text, reply_markup=stop_keyboard, parse_mode="Markdown")
             except Exception:
                 pass
             
@@ -340,4 +340,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-                
+    
