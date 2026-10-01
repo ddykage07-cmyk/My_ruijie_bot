@@ -11,8 +11,18 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 📌 Proxy စာရင်းများကို ဖယ်ရှားထားပြီး၊ တကယ်လို့ သီးသန့်ဖိုင် (သို့) အခြားနေရာမှ လှမ်းဖတ်လိုပါက ဤနေရာတွင် ထည့်သွင်းနိုင်ပါသည်
-DEFAULT_PROXIES = []
+# Proxy.txt သို့မဟုတ် Proxy.txt များကို ဖတ်မည့် function
+def load_proxies_from_file():
+    for filename in ["Proxy.txt", "proxy.txt", "@SIRZIPP.txt"]:
+        if os.path.exists(filename):
+            try:
+                with open(filename, "r", encoding="utf-8") as f:
+                    proxies = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+                    if proxies:
+                        return proxies
+            except Exception:
+                pass
+    return []
 
 # Tracking states
 scanning_states = {}
@@ -37,12 +47,14 @@ def show_startup_banner():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in user_modes:
-        user_modes[chat_id] = "Number 7"
+        user_modes[chat_id] = "Number 6"
     if chat_id not in user_workers:
-        user_workers[chat_id] = 300
+        user_workers[chat_id] = 1000
     
+    # Proxy.txt ထဲမှ Proxy များကို အလိုအလျောက် ဆွဲယူမည်
     if chat_id not in user_proxies or not user_proxies[chat_id]:
-        user_proxies[chat_id] = DEFAULT_PROXIES.copy()
+        file_proxies = load_proxies_from_file()
+        user_proxies[chat_id] = file_proxies
     
     proxy_count = len(user_proxies.get(chat_id, []))
     
@@ -121,7 +133,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "start_scanner":
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠️ စကင်န်ဖတ်ခြင်း လုပ်ငန်းစဉ် လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
@@ -169,7 +181,7 @@ def generate_code_by_mode(mode):
 
 async def worker_task(worker_id, session, portal_url, chat_id):
     while scanning_states.get(chat_id, False):
-        mode = user_modes.get(chat_id, "Number 7")
+        mode = user_modes.get(chat_id, "Number 6")
         code_val = generate_code_by_mode(mode)
         
         if not hasattr(worker_task, "current_codes"):
@@ -199,8 +211,8 @@ async def run_scanner_with_workers(query, context, portal_url):
     scanning_states[chat_id] = True
     found_codes[chat_id] = []
     
-    workers_count = user_workers.get(chat_id, 300)
-    mode = user_modes.get(chat_id, "Number 7")
+    workers_count = user_workers.get(chat_id, 1000)
+    mode = user_modes.get(chat_id, "Number 6")
     
     status_message = await query.message.reply_text(
         f"⚡ **Ruijie Voucher Scanner စတင်နေပါပြီ ({mode} | Workers: {workers_count})...**\nရပ်တန့်ရန် `/stop` ဟု ရိုက်ပါ။", 
@@ -280,4 +292,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+        
