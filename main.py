@@ -11,7 +11,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Proxy.txt သို့မဟုတ် proxy.txt ဖိုင်များမှ Proxy များကို အလိုအလျောက် ဖတ်မည့် function
+# Proxy.txt ဖိုင်မှ Proxy များကို အလိုအလျောက် ဖတ်မည့် function (Proxy စာရင်းများ ဖျက်ပြီးပါပြီ)
 def load_proxies_from_file():
     filenames = [
         "Proxy.txt", "proxy.txt",
@@ -57,10 +57,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id not in user_workers:
         user_workers[chat_id] = 1000
     
-    # Proxy.txt ထဲမှ Proxy များကို အလိုအလျောက် ဆွဲယူမည်
     if chat_id not in user_proxies or not user_proxies[chat_id]:
-        file_proxies = load_proxies_from_file()
-        user_proxies[chat_id] = file_proxies
+        user_proxies[chat_id] = load_proxies_from_file()
     
     proxy_count = len(user_proxies.get(chat_id, []))
     
@@ -133,13 +131,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start(update, context)
 
     elif data == "add_proxies":
-        context.user_data['waiting_for'] = 'proxy'
-        await query.message.reply_text("➕ Proxy စာသားများကို (တစ်ကြောင်းချင်း သို့မဟုတ် စာရင်းလိုက်) ပို့ပေးပါ။")
+        user_proxies[chat_id] = load_proxies_from_file()
+        await query.message.reply_text(f"🔄 Proxy များကို ပြန်လည်ဆွဲယူပြီးပါပြီ။ (စုစုပေါင်း: {len(user_proxies[chat_id])})")
+        await start(update, context)
     
     elif data == "start_scanner":
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠️ စကင်န်ဖတ်ခြင်း လုပ်ငန်းစဉ် လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
@@ -155,14 +154,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_portals[chat_id] = text
         context.user_data['waiting_for'] = None
         await update.message.reply_text("✅ Portal URL အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။")
-        await start(update, context)
-    elif waiting_for == 'proxy':
-        proxies = user_proxies.get(chat_id, [])
-        new_proxies = [p.strip() for p in text.split('\n') if p.strip()]
-        proxies.extend(new_proxies)
-        user_proxies[chat_id] = proxies
-        context.user_data['waiting_for'] = None
-        await update.message.reply_text(f"✅ Proxy များ ထည့်သွင်းပြီးပါပြီ။ (စုစုပေါင်း: {len(proxies)})")
         await start(update, context)
     else:
         await update.message.reply_text("ℹ️ ကျေးဇူးပြု၍ မီနူးခလုတ်များကို အသုံးပြုပါ။")
