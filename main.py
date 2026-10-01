@@ -11,7 +11,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Proxy.txt သို့မဟုတ် Proxy.txt များကို ဖတ်မည့် function
+# Proxy.txt သို့မဟုတ် proxy.txt ဖိုင်များကို သေချာဖတ်မည့် function
 def load_proxies_from_file():
     for filename in ["Proxy.txt", "proxy.txt", "@SIRZIPP.txt"]:
         if os.path.exists(filename):
@@ -19,9 +19,11 @@ def load_proxies_from_file():
                 with open(filename, "r", encoding="utf-8") as f:
                     proxies = [line.strip() for line in f if line.strip() and not line.startswith("#")]
                     if proxies:
+                        print(f"[ProxyManager] Successfully loaded {len(proxies)} proxies from {filename}")
                         return proxies
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[ProxyManager] Error reading {filename}: {e}")
+    print("[ProxyManager] Warning: No proxies found in files!")
     return []
 
 # Tracking states
@@ -292,4 +294,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-        
+    
