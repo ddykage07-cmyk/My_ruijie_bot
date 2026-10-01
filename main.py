@@ -72,17 +72,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_proxy_display = f"{proxy_indices[chat_id] + 1}/{total_proxies}" if total_proxies > 0 else "0/0"
     
     keyboard = [
-        [InlineKeyboardButton("🌐 Update Portal 🔥 @SIRZIPP", callback_data="update_portal")],
-        [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
+        [InlineKeyboardButton("🌐 Update Portal Link", callback_data="update_portal")],
+        [InlineKeyboardButton("⚙️️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
         [InlineKeyboardButton(f"🔀 Proxies: {current_proxy_display}", callback_data="add_proxies")],
-        [InlineKeyboardButton("🚀 Start Scanner By @SIRZIPP", callback_data="start_scanner")]
+        [InlineKeyboardButton("🚀 Start Scanner", callback_data="start_scanner")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = (
         "⚡ Starlink & Ruijie Scanner Control Panel ⚡\n\n"
-        f"⚙️️ Mode: {user_modes[chat_id]}\n"
+        f"⚙ Mode: {user_modes[chat_id]}\n"
         f"🔧 Workers: {user_workers[chat_id]}\n"
         f"📁 Proxy File: Loaded from Proxy.txt\n"
         f"🔀 Proxies: {current_proxy_display}"
@@ -163,7 +163,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠️ စကင်န်ဖတ်ခြင်း လုပ်ငန်းစဉ် လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
@@ -227,10 +227,10 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 
-                # Ruijie / Starlink အောင်မြင်မှု အညွှန်းကိန်း သော့ချက်စာလုံးများ
+                # အောင်မြင်မှု၊ သက်တမ်းကုန်မှုနှင့် Limit ဖြစ်မှုများကို စစ်ဆေးခြင်း
                 success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining"]
-                expired_keywords = ["expired", "invalid", "timeout", "used"]
-                limit_keywords = ["limit", "too many", "blocked", "restricted"]
+                expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect"]
+                limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted"]
                 
                 if response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html:
                     if chat_id not in found_codes:
@@ -261,8 +261,7 @@ async def run_scanner_with_workers(query, context, portal_url):
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
     
     initial_text = (
-        "⚡ Scanner Running ⚡\n"
-        "Thank for using By Telegram @SIRZIPP\n\n"
+        "⚡ Scanner Running ⚡\n\n"
         "⏳ စတင်နေပါပြီ..."
     )
     status_message = await query.message.reply_text(
@@ -291,16 +290,15 @@ async def run_scanner_with_workers(query, context, portal_url):
             current_code = current_codes_tracker.get(chat_id, generate_code_by_mode(mode))
             
             live_text = (
-                "⚡ Scanner Running ⚡\n"
-                "Thank for using By Telegram @SIRZIPP\n\n"
+                "⚡ Scanner Running ⚡\n\n"
                 f"🏹 Tried: {tried:,}\n"
                 f"🎯 Current Code: {current_code}\n"
-                f"🔥 Hits: {len(hits_list)} BY @SIRZIPP ဆရာဇ်\n"
-                f"❌ sirr Expired: {expired}\n"
-                f"⚠️ zipp Limits: {limits}\n"
-                f"⚡ ဆရာဇ် Speed: {speed:,.1f} c/m\n"
+                f"🔥 Hits: {len(hits_list)}\n"
+                f"❌ Expired: {expired}\n"
+                f"⚠️ Limits: {limits}\n"
+                f"⚡ Speed: {speed:,.1f} c/m\n"
                 "___________________________________\n"
-                "🔥 Hit Codes BY Z I P P :\n"
+                "🔥 Hit Codes:\n"
                 f"{hits_str}"
             )
             try:
@@ -314,7 +312,7 @@ async def run_scanner_with_workers(query, context, portal_url):
     final_hits = found_codes.get(chat_id, [])
     final_text = "🛑 စကင်န်ဖတ်ခြင်း ရပ်တန့်သွားပါပြီ။\n\n"
     if final_hits:
-        final_text += "🔥 Hit Codes BY Z I P P :\n" + "\n".join(final_hits)
+        final_text += "🔥 Hit Codes Found:\n" + "\n".join(final_hits)
     else:
         final_text += "ℹ️ တွေ့ရှိသော Code အသစ် မရှိသေးပါ။"
         
@@ -347,3 +345,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
