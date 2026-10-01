@@ -255,8 +255,14 @@ async def run_scanner_with_workers(query, context, portal_url):
     
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
     
+    # ပထမဦးဆုံး ပေါ်လာမည့် message (စတင်နေပါပြီ...)
+    initial_text = (
+        "⚡ **Scanner Running** ⚡\n"
+        "Thank for using By Telegram https://t.me/Kage_starlink_channel\n\n"
+        "⏳ စတင်နေပါပြီ..."
+    )
     status_message = await query.message.reply_text(
-        "⚡ **Scanner Running** ⚡\nThank for using By Telegram https://t.me/Kage_starlink_channel\n\n⏳ စတင်နေပါပြီ...", 
+        initial_text, 
         reply_markup=stop_keyboard,
         parse_mode="Markdown"
     )
@@ -340,4 +346,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+            
