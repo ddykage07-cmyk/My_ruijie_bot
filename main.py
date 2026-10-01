@@ -11,6 +11,9 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 📌 Proxy စာရင်းများကို ဖယ်ရှားထားပြီး၊ တကယ်လို့ သီးသန့်ဖိုင် (သို့) အခြားနေရာမှ လှမ်းဖတ်လိုပါက ဤနေရာတွင် ထည့်သွင်းနိုင်ပါသည်
+DEFAULT_PROXIES = []
+
 # Tracking states
 scanning_states = {}
 user_modes = {}
@@ -38,11 +41,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id not in user_workers:
         user_workers[chat_id] = 300
     
+    if chat_id not in user_proxies or not user_proxies[chat_id]:
+        user_proxies[chat_id] = DEFAULT_PROXIES.copy()
+    
     proxy_count = len(user_proxies.get(chat_id, []))
     
     keyboard = [
         [InlineKeyboardButton("🌐 Update Portal URL", callback_data="update_portal")],
-        [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
+        [InlineKeyboardButton("⚙ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
         [InlineKeyboardButton("🔄 Change Proxy", callback_data="add_proxies")],
         [InlineKeyboardButton("🚀 Start Scanner", callback_data="start_scanner")]
@@ -115,7 +121,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "start_scanner":
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠️ စကင်န်ဖတ်ခြင်း လုပ်ငန်းစဉ် လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
